@@ -7,3 +7,5 @@ out
 dist
 .webpack
 *.spec
+
+.python-version
