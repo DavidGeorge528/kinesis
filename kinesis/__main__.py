@@ -14,26 +14,16 @@ from pymobiledevice3.cli.cli_common import prompt_device_list
 from pymobiledevice3.cli.remote import get_device_list
 from pymobiledevice3.exceptions import NoDeviceConnectedError
 from pymobiledevice3.remote.common import TunnelProtocol
-from pymobiledevice3.remote.module_imports import (
-    MAX_IDLE_TIMEOUT,
-    start_tunnel,
-    verify_tunnel_imports,
-)
-from pymobiledevice3.remote.remote_service_discovery import (
-    RemoteServiceDiscoveryService,
-)
-from pymobiledevice3.services.dvt.dvt_secure_socket_proxy import (
-    DvtSecureSocketProxyService,
-)
-from pymobiledevice3.services.dvt.instruments.location_simulation import (
-    LocationSimulation,
-)
+from pymobiledevice3.remote.module_imports import MAX_IDLE_TIMEOUT, start_tunnel, verify_tunnel_imports
+from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
+from pymobiledevice3.services.dvt.dvt_secure_socket_proxy import DvtSecureSocketProxyService
+from pymobiledevice3.services.dvt.instruments.location_simulation import LocationSimulation
 
 logger = logging.getLogger(__name__)
 
 
-def server(tunnel_host, tunnel_port):
-    clients = {}
+def server(tunnel_host: str, tunnel_port: int) -> None:
+    clients: dict[str, tuple[RemoteServiceDiscoveryService, LocationSimulation]] = {}
     sio = socketio.Server(cors_allowed_origins="*")
     app = socketio.WSGIApp(
         sio,
@@ -45,27 +35,27 @@ def server(tunnel_host, tunnel_port):
     )
 
     @sio.event
-    def connect(sid, environ):
+    def connect(sid: str, environ: dict[str, t.Any]) -> None:
         rsd = RemoteServiceDiscoveryService((tunnel_host, tunnel_port))
         rsd.connect()
         dvt = DvtSecureSocketProxyService(rsd)
         dvt.perform_handshake()
         loc = LocationSimulation(dvt)
-        clients[sid] = [rsd, loc]
+        clients[sid] = rsd, loc
 
     @sio.event
-    def location(sid, data):
+    def location(sid: str, data: str) -> None:
         la, lo = list(map(lambda x: float(x), data.split(",")))
         clients[sid][1].set(la, lo)
 
     @sio.event
-    def disconnect(sid):
+    def disconnect(sid: str) -> None:
         clients[sid][1].clear()
         clients[sid][0].service.close()
         clients.pop(sid)
 
     s = eventlet.listen(("localhost", 3000))
-    [ip, port] = s.getsockname()
+    _, port = s.getsockname()
     print("--port", port)
     eventlet.wsgi.server(s, app)
 
@@ -102,11 +92,7 @@ async def tunnel_task(
             print(click.style("RSD Port: ", bold=True, fg="yellow") + click.style(tunnel_result.port, bold=True, fg="white"))
             print(
                 click.style("Use the follow connection option:\n", bold=True, fg="yellow")
-                + click.style(
-                    f"--rsd {tunnel_result.address} {tunnel_result.port}",
-                    bold=True,
-                    fg="cyan",
-                )
+                + click.style(f"--rsd {tunnel_result.address} {tunnel_result.port}", bold=True, fg="cyan")
             )
         sys.stdout.flush()
 
@@ -118,7 +104,7 @@ async def tunnel_task(
         logger.info("tunnel was closed")
 
 
-def create_tunnel():
+def create_tunnel() -> None:
     """start quic tunnel"""
     if not verify_tunnel_imports():
         return
