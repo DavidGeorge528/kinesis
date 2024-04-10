@@ -50,7 +50,7 @@ let marker = null;
 let markerLastPos = null;
 let markerShadowPos = null;
 
-const path = L.polyline([], {color: 'red'}).addTo(map);
+const path = L.polyline([], { color: 'red' }).addTo(map);
 let stepIndex = 0; // index of next step of path
 let speed = 1; // speed unit meter per second
 let loop = 'off'; // off; loop; uturn
@@ -62,7 +62,7 @@ const tickInterval = 1000; // update location per 1000ms
 const randomFactor = 0.2; // +-20% of origin value
 
 
-const tick = setInterval(function() {
+const tick = setInterval(function () {
     navigate();
 }, tickInterval);
 
@@ -132,6 +132,30 @@ const setPause = (v) => {
 }
 setPause(pause);
 
+const setDirectTeleport = () => {
+    const value = document.getElementById("coordinates").value;
+
+    if (value.length <= 1) return;
+
+    // Light validation to see if input looks kinda like GPS coordinates
+    const coordinatePattern = /^-?\d+(\.\d+)?,\s?-?\d+(\.\d+)?$/;
+    if (!coordinatePattern.test(value)) {
+        alert("Invalid GPS coordinates, should look like: 53.338228, -6.259323")
+        return;
+    }
+
+    const coords = value.split(',');
+    if (coords.length !== 2) return;
+
+    const lat = parseFloat(coords[0]);
+    const lng = parseFloat(coords[1]);
+    const latlng = { lat, lng };
+
+    if (!initMain({ latlng }, true)) {
+        teleport(latlng, true);
+        updatePositionInfo(latlng);
+    }
+}
 
 document.getElementById('undoButton').addEventListener('click', deleteStep);
 document.getElementById('stopButton').addEventListener('click', clearSteps);
@@ -160,25 +184,15 @@ document.getElementsByName('loopChoice').forEach((element) => {
     });
 });
 
-const updatePositionInfo = async (latlng) => {
-    const latlonInfo = document.getElementById('latlon-info');
-    const addressInfo = document.getElementById('address-info');
-
-    latlonInfo.textContent = `Latitude: ${latlng.lat.toFixed(6)}, Longitude: ${latlng.lng.toFixed(6)}`;
-
-    // Use OpenStreetMap Nominatim API for reverse geocoding
+const getAddressInfo = async (latlng) => {
     const apiUrl = `https://nominatim.openstreetmap.org/reverse?lat=${latlng.lat}&lon=${latlng.lng}&format=json`;
-    
     try {
         const response = await fetch(apiUrl);
         const data = await response.json();
-
         if (response.ok && data.display_name) {
-            const address = data.address;
-            addressInfo.textContent = `Street: ${address.road || ''}, City: ${address.city || ''}, Country: ${address.country || ''}`;
+            return data.address;
         } else {
-            // Handle errors or no address found
-            addressInfo.textContent = 'Address information not available';
+            return null;
         }
     } catch (error) {
         console.error('Error fetching address information:', error);
@@ -186,7 +200,27 @@ const updatePositionInfo = async (latlng) => {
     }
 }
 
-map.on('click', function(e) {
+const updatePositionInfo = async (latlng) => {
+    const latlonInfo = document.getElementById('latlon-info');
+    const addressInfo = document.getElementById('address-info');
+
+    latlonInfo.textContent = `Latitude: ${latlng.lat.toFixed(6)}, Longitude: ${latlng.lng.toFixed(6)}`;
+
+    // Use OpenStreetMap Nominatim API for reverse geocoding
+
+    const address = await getAddressInfo(latlng);
+
+    if (address) {
+        addressInfo.textContent = `Street: ${address.road || ''}, City: ${address.city || ''}, Country: ${address.country || ''}`;
+    } else {
+        // Handle errors or no address found
+        addressInfo.textContent = 'Address information not available';
+    }
+
+
+}
+
+map.on('click', function (e) {
     if (teleportEnabled) {
         teleport(e.latlng);
     } else {
@@ -207,7 +241,7 @@ map.on('zoomend', function () {
     saveConfig('zoom', map.getZoom());
 });
 
-map.on('moveend', function() {
+map.on('moveend', function () {
     const c = map.getCenter();
     saveConfig('latitude', c.lat);
     saveConfig('longitude', c.lng);
@@ -225,7 +259,7 @@ const searchHandler = (result) => {
     path.setLatLngs([]);
     stepIndex = 0;
 
-    const event = { latlng: { lat: result.location.y, lng: result.location.x} }
+    const event = { latlng: { lat: result.location.y, lng: result.location.x } }
     if (!initMain(event)) {
         addStep(event.latlng);
     }
@@ -242,15 +276,16 @@ const random = (x) => {
 // return true if initialized marker, false if already initialized
 function initMain(e) {
     if (marker === null) {
-        marker = L.marker(e.latlng, {draggable: true});
+        marker = L.marker(e.latlng, { draggable: true });
         if (teleport(e.latlng)) {
             marker.addTo(map);
+            updatePositionInfo(e.latlng);
 
-            marker.on('mousedown', function(e) {
+            marker.on('mousedown', function (e) {
                 markerLastPos = e.latlng;
             });
 
-            marker.on('mouseup', function(e) {
+            marker.on('mouseup', function (e) {
                 if (!teleport(e.latlng)) {
                     marker.setLatLng(markerLastPos);
                 }
@@ -267,8 +302,10 @@ function initMain(e) {
 
 
 // return true if teleported, false if canceled teleportation
-function teleport(latlng) {
-    const choice = confirm('Teleport?')
+async function teleport(latlng) {
+    address = await getAddressInfo(latlng);
+    addressString = address ? `${address.road || ''}, ${address.city || ''}, ${address.country || ''}` : 'Address information not available';
+    const choice = confirm(`Teleport to ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}?\n${addressString}`);
     if (choice) {
         marker.setLatLng(latlng);
         markerShadowPos = latlng;
@@ -278,6 +315,7 @@ function teleport(latlng) {
         } else {
             clearSteps();
         }
+        map.panTo(latlng);
     }
     return choice;
 }
@@ -329,7 +367,7 @@ function deleteStep() {
 }
 
 
-function clearSteps(toggleTeleport=true) {
+function clearSteps(toggleTeleport = true) {
     if (marker) {
         console.log(`clear path`);
         path.setLatLngs([marker.getLatLng()]);
