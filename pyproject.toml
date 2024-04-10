@@ -1,0 +1,18 @@
+[project]
+name = "kinesis"
+dynamic = ["version"]
+requires-python = ">=3.11.0"
+dependencies = ["pymobiledevice3<3", "python-socketio", "eventlet"]
+
+[project.scripts]
+kinesis = "kinesis.__main__:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+"*" = ["*.*"]
+
+[tool.black]
+line-length = 150
