@@ -4,7 +4,7 @@ Built with `pymobiledevice3` and `leaflet`.
 
 ## Requirements
 
-- Python version **3.11.x**
+- Python version **> 3.11.x**
 - iOS Device in [developer mode](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device)
 
 ## Run
@@ -19,7 +19,7 @@ source ./.venv/bin/activate
 Install python dependencies
 
 ```shell
-pip3 install -r requirements.txt
+pip3 install .
 ```
 
 Have your device connected, **USB connection is required**
@@ -27,7 +27,7 @@ Have your device connected, **USB connection is required**
 Start project
 
 ```shell
-sudo python3 main.py
+sudo kinesis
 ```
 
 Browse [http://localhost:3000](http://localhost:3000)
