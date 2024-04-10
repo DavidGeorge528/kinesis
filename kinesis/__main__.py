@@ -60,7 +60,7 @@ def server(tunnel_host, tunnel_port):
 
     @sio.event
     def disconnect(sid):
-        clients[sid][1].stop()
+        clients[sid][1].clear()
         clients[sid][0].service.close()
         clients.pop(sid)
 
